@@ -11,7 +11,7 @@
 
 The goal of this project is to:
 - Allow users to create and manage their book collection.
-- Enable community interaction through upvotes and reviews.
+- Enable community interaction through upvotes and reviews
 - Build a secure, full-stack MERN (MongoDB, Express, React, Node) application using Firebase for authentication.
 
 ##  Key Features
