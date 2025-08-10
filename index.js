@@ -9,7 +9,7 @@ const port = process.env.PORT || 5000;
 
 
 const corsOptions = {
-    origin: ['https://majestic-gecko-df700c.netlify.app','http://localhost:5173','https://iridescent-mandazi-86fffc.netlify.app'], 
+    origin: ['https://majestic-gecko-df700c.netlify.app','http://localhost:5173','https://iridescent-mandazi-86fffc.netlify.app','https://vocal-melomakarona-d5383e.netlify.app'], 
     credentials: true, 
     // allowedHeaders: ['Content-Type', 'Authorization'], 
   };
@@ -69,6 +69,8 @@ const db = client.db("bookdb");
 const booksCollection = db.collection("books");
 const reviewsCollection = db.collection("reviews");
 const usersCollection = db.collection("users");
+const contacts = db.collection('contacts');
+
 
 
 
@@ -103,7 +105,7 @@ async function run() {
             }
         });
 
-        app.get("/books", verifyToken, async (req, res) => {
+        app.get("/books", async (req, res) => {
             try {
                 const books = await db.collection("books").find().toArray();
                 res.send(books);
@@ -113,13 +115,15 @@ async function run() {
         });
 
 
+
+
         // feacher
-        app.get("/books/featured", verifyToken, async (req, res) => {
+        app.get("/books/featured", async (req, res) => {
             try {
               const featuredBooks = await booksCollection
                 .find()
                 .sort({ upvote: -1 })
-                .limit(6)
+                .limit(8)
                 .toArray();
               res.send(featuredBooks);
             } catch (error) {
@@ -140,40 +144,83 @@ async function run() {
           });
           
 
-        app.get("/books/:id", verifyToken, async (req, res) => {
+        app.get("/books/:id", async (req, res) => {
             const { id } = req.params;
             const book = await booksCollection.findOne({ _id: new ObjectId(id) });
             res.send(book);
           });
 
+          
+
+
+
     //    upvote korsi
-    app.patch('/books/upvote/:id', verifyToken, async (req, res) => {
+    app.patch('/books/upvote/:id', async (req, res) => {
         const bookId = req.params.id;
-        const userEmail = req.user.email;
+        // const userEmail = req.user.email;
       
         const book = await booksCollection.findOne({ _id: new ObjectId(bookId) });
       
         if (!book) return res.status(404).json({ success: false, message: "Book not found" });
       
-        if (book.user_email === userEmail)
-          return res.json({ success: false, message: "You can't upvote your own book" });
+        // if (book.user_email === userEmail)
+        //   return res.json({ success: false, message: "You can't upvote your own book" });
       
-        if (book.upvoted_by?.includes(userEmail))
-          return res.json({ success: false, message: "You've already upvoted this book" });
+        // if (book.upvoted_by?.includes(userEmail))
+        //   return res.json({ success: false, message: "You've already upvoted this book" });
       
         const updatedUpvote = (book.upvote || 0) + 1;
-        const updatedUpvotedBy = [...(book.upvoted_by || []), userEmail];
+        // const updatedUpvotedBy = [...(book.upvoted_by || []), userEmail];
       
         const result = await booksCollection.updateOne(
           { _id: new ObjectId(bookId) },
-          { $set: { upvote: updatedUpvote, upvoted_by: updatedUpvotedBy } }
+          { $set: { upvote: updatedUpvote } }
         );
       
         res.json({ success: true, upvote: updatedUpvote });
       });
       
           
-  
+ 
+
+
+
+app.patch('/books/status/:id', async (req, res) => {
+  try {
+    const bookId = req.params.id;
+    const { reading_status } = req.body;
+
+    if (!reading_status) {
+      return res.status(400).json({ success: false, message: "reading_status is required" });
+    }
+
+    const allowedStatuses = ["Want-to-Read", "Reading", "Read"];
+    if (!allowedStatuses.includes(reading_status)) {
+      return res.status(400).json({ success: false, message: "Invalid reading_status value" });
+    }
+
+    const book = await booksCollection.findOne({ _id: new ObjectId(bookId) });
+    if (!book) {
+      return res.status(404).json({ success: false, message: "Book not found" });
+    }
+
+    // Update the reading_status
+    const result = await booksCollection.updateOne(
+      { _id: new ObjectId(bookId) },
+      { $set: { reading_status: reading_status } }
+    );
+
+    if (result.modifiedCount === 1) {
+      res.json({ success: true, message: "Reading status updated" });
+    } else {
+      res.status(500).json({ success: false, message: "Failed to update status" });
+    }
+  } catch (error) {
+    console.error("Error updating reading status:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+ 
 
           // GET reviews for a book
 app.get("/reviews/:bookId", async (req, res) => {
@@ -224,6 +271,26 @@ app.get("/reviews/:bookId", async (req, res) => {
     const result = await booksCollection.find({ user_email: userEmail }).toArray();
     res.send(result);
   });  
+  app.get('/mybooks/:id', async (req, res) => {
+  try {
+    const bookId = req.params.id;
+
+    if (!ObjectId.isValid(bookId)) {
+      return res.status(400).json({ message: 'Invalid book ID' });
+    }
+
+    const book = await booksCollection.findOne({ _id: new ObjectId(bookId) });
+
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+
+    res.json(book);
+  } catch (error) {
+    console.error('Error fetching book by id:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
   
   app.delete('/mybooks/:id', verifyToken, async (req, res) => {
     const id = req.params.id;
@@ -296,7 +363,18 @@ app.get("/reviews/:bookId", async (req, res) => {
     }
   });
   
- 
+ app.post('/contact', async (req, res) => {
+      const { name, email, message } = req.body;
+
+      if (!name || !email || !message) {
+        return res.status(400).json({ error: 'All fields are required' });
+      }
+
+      const newContact = { name, email, message, createdAt: new Date() };
+      await contacts.insertOne(newContact);
+
+      res.status(201).json({ message: 'Message received successfully' });
+    });
 
 
 

@@ -4,7 +4,7 @@
 
 ##  Live Site
 
- Live: https://iridescent-mandazi-86fffc.netlify.app
+ Live: https://vocal-melomakarona-d5383e.netlify.app
  Backend: https://server-site-sigma-ashy.vercel.app 
 
 ##  Project Purpose
